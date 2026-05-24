@@ -1,0 +1,11 @@
+/* === Container raiz (Shadow DOM host) === */
+#autotec-revistoria-host {
+  all: initial;
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 420px;
+  height: 600px;
+  z-index: 2147483647;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}

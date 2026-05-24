@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Autotec Andamento Revistoria",
+  "version": "1.0.0",
+  "description": "Painel lateral para gerar andamentos padronizados de revistoria no WebSoma.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["panel.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Autotec Andamento Revistoria"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
