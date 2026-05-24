@@ -94,9 +94,9 @@
       default: sucatas = 'recolhidas';
     }
     const fornecimentoMap = {
-      companhia: 'com fornecimento pela companhia',
-      oficina: 'com compra de peças pela oficina',
-      misto: 'fornecimento misto (companhia e oficina)',
+      companhia: 'peças com fornecimento pela companhia',
+      oficina: 'peças com compra pela oficina',
+      misto: 'peças com fornecimento misto (companhia e oficina)',
     };
     const fornecimento = fornecimentoMap[f.fornecimento] || fornecimentoMap.companhia;
     let pendencia;
@@ -479,11 +479,12 @@ Constatado em vistoria in loco na versão ${f.versao || ''} do orçamento que pe
     const cadastro = await loadOficinas();
     const dados = cadastro[of.codigo];
     if (dados) {
+      $('#f-atendente').value = dados.atendente || '';
       $('#f-telefone').value = dados.telefone || '';
       $('#f-email').value = dados.email || '';
       $('#f-cadastro-hint').textContent = `Contato carregado do cadastro (${of.codigo}).`;
     } else {
-      $('#f-cadastro-hint').textContent = `Sem cadastro para ${of.codigo} — telefone/e-mail digitados serão salvos.`;
+      $('#f-cadastro-hint').textContent = `Sem cadastro para ${of.codigo} — atendente/telefone/e-mail digitados serão salvos.`;
     }
   }
 
@@ -493,6 +494,7 @@ Constatado em vistoria in loco na versão ${f.versao || ''} do orçamento que pe
     const cadastro = await loadOficinas();
     cadastro[of.codigo] = {
       nome: of.nome,
+      atendente: $('#f-atendente').value.trim(),
       telefone: $('#f-telefone').value.trim(),
       email: $('#f-email').value.trim(),
       atualizadoEm: new Date().toISOString(),
