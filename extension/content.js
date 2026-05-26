@@ -716,21 +716,19 @@ Constatado em vistoria in loco na versão ${f.versao || ''} do orçamento que pe
       const f     = readForm();
       const placa = detectPlaca();
       const payload = {
-        placa:    placa || '(não detectada)',
-        processo: f.processo,
-        versao:   f.versao,
-        canal:    f.canal,
+        placa:   placa || '(não detectada)',
+        status:  f.processo,  // → coluna O (STATUS) na planilha
+        versao:  f.versao,    // → coluna K (VERSÃO)
+        canal:   f.canal,     // → coluna I (CANAL REG.)
         // data e hora omitidos — preenchidos pelo outro script da planilha
       };
 
       showStatus('Enviando para a planilha…', 'inf');
       const res = await saveToSheets(payload, url);
       if (res && res.ok) {
-        const action = res.data?.action;
-        showStatus(action === 'updated' ? `Linha atualizada (${placa || payload.placa}).`
-                                        : `Linha adicionada (${placa || payload.placa}).`, 'ok');
+        showStatus(`Planilha atualizada — linha ${res.data?.row || '?'} (${placa || payload.placa}).`, 'ok');
       } else {
-        showStatus('Erro: ' + (res?.error || 'falha desconhecida'), 'err');
+        showStatus('Erro: ' + (res?.error || res?.data?.error || 'falha desconhecida'), 'err');
       }
     });
 
