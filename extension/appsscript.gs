@@ -13,24 +13,25 @@
 //   6. Autorize o acesso quando solicitado
 //   7. Copie a URL gerada e cole no campo "URL do Apps Script" da extensão
 //
-// CONFIGURAÇÃO DAS COLUNAS:
-//   Ajuste as constantes abaixo para corresponder aos cabeçalhos
-//   exatos da sua planilha (linha 1 da aba).
+// ESTRUTURA DE COLUNAS (mesma do processarXML):
+//   H (8)  → PLACA          — usado para localizar a linha
+//   I (9)  → CANAL REG.     — preenchido pela extensão
+//   K (11) → VERSÃO         — preenchido pela extensão
+//   O (15) → STATUS         — preenchido pela extensão (REGULAR / IRREGULAR)
 //
-// CONVIVÊNCIA COM OUTROS SCRIPTS:
-//   Este script usa LockService para garantir escrita exclusiva
-//   e só toca nas colunas mapeadas abaixo — não interfere com
-//   colunas preenchidas por outros scripts.
+// CONVIVÊNCIA COM processarXML:
+//   Usa LockService para escrita exclusiva e só toca nas colunas
+//   I, K e O — todas as demais colunas ficam intactas.
 // ================================================================
 
-const GID_DESTINO = 926788909; // ID da aba (número após gid= na URL)
+const SPREADSHEET_ID = '1mgh99vNCrC8TjIaOFLDTkxK_kaNOQI41xkafvD3_csg';
+const GID_DESTINO    = 926788909; // aba "Junho" (gid= na URL)
 
-// Nomes dos cabeçalhos — ajuste conforme sua planilha
-const COL_PLACA    = 'Placa';
-const COL_PROCESSO = 'Processo';
-const COL_VERSAO   = 'Versão';
-const COL_CANAL    = 'Canal';
-// ⚠ Data e Hora são preenchidos pelo outro script — não mexa aqui
+// Posições de coluna (1-based) — mesma lógica do processarXML
+const COL_PLACA  = 8;   // H - PLACA  (busca)
+const COL_CANAL  = 9;   // I - CANAL REG.
+const COL_VERSAO = 11;  // K - VERSÃO
+const COL_STATUS = 15;  // O - STATUS
 
 // ----------------------------------------------------------------
 
@@ -46,60 +47,44 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
 
-    const ss    = SpreadsheetApp.getActiveSpreadsheet();
+    // openById garante acesso mesmo em Web App externo
+    const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheets().find(s => s.getSheetId() === GID_DESTINO)
-                  || ss.getActiveSheet();
+                  || ss.getSheetByName('Junho');
 
-    const lastCol = Math.max(sheet.getLastColumn(), 1);
-    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-
-    function colIdx(name) {
-      return headers.findIndex(h =>
-        String(h).trim().toLowerCase() === name.trim().toLowerCase()
-      );
+    if (!sheet) {
+      return jsonResp({ ok: false, error: 'Aba de destino não encontrada na planilha.' });
     }
 
-    const placaIdx = colIdx(COL_PLACA);
-    if (placaIdx === -1)
-      return jsonResp({ ok: false, error: `Cabeçalho "${COL_PLACA}" não encontrado na linha 1.` });
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return jsonResp({ ok: false, error: 'Planilha sem dados.' });
+    }
 
-    const lastRow   = sheet.getLastRow();
-    const allValues = lastRow > 1
-      ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
-      : [];
+    // Busca a placa na coluna H (8) — ignora hífens, espaços e case
+    const placas = sheet
+      .getRange(2, COL_PLACA, lastRow - 1, 1)
+      .getValues()
+      .map(r => norm(r[0]));
 
-    let targetRow = -1;
     const placaNorm = norm(data.placa);
-    for (let i = 0; i < allValues.length; i++) {
-      if (norm(String(allValues[i][placaIdx])) === placaNorm) {
-        targetRow = i + 2; // base-1 + cabeçalho
-        break;
-      }
+    const idx       = placas.indexOf(placaNorm);
+
+    if (idx === -1) {
+      return jsonResp({
+        ok: false,
+        error: `Placa "${data.placa}" não encontrada na planilha. Verifique se o XML já foi processado.`
+      });
     }
+
+    const targetRow = idx + 2; // +1 base-1, +1 cabeçalho
 
     // Escreve APENAS nas colunas mapeadas — não toca nas demais
-    const write = (col, val) => {
-      const i = colIdx(col);
-      if (i !== -1) sheet.getRange(targetRow, i + 1).setValue(val);
-    };
+    sheet.getRange(targetRow, COL_CANAL ).setValue(data.canal  || '');
+    sheet.getRange(targetRow, COL_VERSAO).setValue(data.versao || '');
+    sheet.getRange(targetRow, COL_STATUS).setValue(data.status || '');
 
-    if (targetRow === -1) {
-      // Placa não encontrada → nova linha (só nas colunas mapeadas)
-      const row = new Array(headers.length).fill('');
-      const set = (col, val) => { const i = colIdx(col); if (i !== -1) row[i] = val; };
-      set(COL_PLACA,    data.placa    || '');
-      set(COL_PROCESSO, data.processo || '');
-      set(COL_VERSAO,   data.versao   || '');
-      set(COL_CANAL,    data.canal    || '');
-      sheet.appendRow(row);
-      return jsonResp({ ok: true, action: 'appended' });
-    } else {
-      // Placa encontrada → atualiza só Processo, Versão e Canal
-      write(COL_PROCESSO, data.processo || '');
-      write(COL_VERSAO,   data.versao   || '');
-      write(COL_CANAL,    data.canal    || '');
-      return jsonResp({ ok: true, action: 'updated', row: targetRow });
-    }
+    return jsonResp({ ok: true, action: 'updated', row: targetRow });
 
   } catch (err) {
     return jsonResp({ ok: false, error: err.message });
